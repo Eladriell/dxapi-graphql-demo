@@ -13,6 +13,7 @@ const typeDefs = gql`
       commercialFareFamily: String
       travelerTypes: String
     ): AirOfferList
+    getHotels: HotelReply
   }
 
   type Mutation {
@@ -95,6 +96,9 @@ const typeDefs = gql`
     data: Cart
     dictionaries: CartDictionaries
   }
+  type HotelReply {
+    hotels: HotelData
+  }
 
   type Cart {
     id: String
@@ -137,6 +141,13 @@ const typeDefs = gql`
     locationCode: String
     dateTime: String
     terminal: String
+  }
+
+  type HotelData {
+    hotels: [Accommodation]
+    checkIn: String
+    total: Int
+    checkOut: String
   }
 
   type Accommodation {
@@ -343,50 +354,56 @@ const resolvers = {
       return fetch(baseUrl + `/shopping/carts/${id}`, { headers })
         .then(res => res.json())
         .then(res => {
-          //duration = flight2.departure.datetime - flight1.arrival.datetime
-          //targetLocation = flight1.arrival.locationCode
-
-          const apiKeyApiTude = "ex2hcrqn8f3c3uwrevcpncs8";
-          const secretApiTude = " AJfrPvArP5";
-          var signature = buildSignature(apiKeyApiTude, secretApiTude);
-
-          const headersApiTude = {
-            "Api-key": apiKeyApiTude,
-            "X-Signature": signature,
-            Accept: "application/json",
-            "Content-Type": "application/json"
-          };
-          const hotelSearch = {
-            stay: {
-              checkIn: "2019-06-15",
-              checkOut: "2019-06-16"
-            },
-            occupancies: [
-              {
-                rooms: 1,
-                adults: 1,
-                children: 0
-              }
-            ],
-            geolocation: {
-              latitude: 51.4703,
-              longitude: -0.45342,
-              radius: 20,
-              unit: "km"
-            }
-          };
-          console.log("***** " + hotelSearch);
-          fetch("https://api.test.hotelbeds.com/hotel-api/1.0/hotels", {
-            method: "POST",
-            headersApiTude,
-            body: JSON.stringify(hotelSearch)
-          })
-            .then(hotels => hotels.json())
-            .then(hotels => {
-              console.log("***** " + JSON.stringify(hotels));
-            });
+          //determine duration + location for hotel search
 
           return res;
+        });
+    },
+    getHotels: () => {
+      const apiKeyApiTude = "ex2hcrqn8f3c3uwrevcpncs8";
+      const secretApiTude = "AJfrPvArP5";
+      var signature = buildSignature(apiKeyApiTude, secretApiTude);
+
+      const headersApiTude = {
+        "Api-key": apiKeyApiTude,
+        "X-Signature": signature,
+        Accept: "application/json",
+        "Accept-Encoding": "gzip",
+        "Content-Type": "application/json"
+      };
+      const hotelSearch = {
+        stay: {
+          checkIn: "2019-06-15",
+          checkOut: "2019-06-16"
+        },
+        occupancies: [
+          {
+            rooms: 1,
+            adults: 1,
+            children: 0
+          }
+        ],
+        geolocation: {
+          latitude: 51.4703,
+          longitude: -0.45342,
+          radius: 20,
+          unit: "km"
+        }
+      };
+      return fetch("https://api.test.hotelbeds.com/hotel-api/1.0/hotels", {
+        method: "POST",
+        headersApiTude,
+        body: JSON.stringify(hotelSearch)
+      })
+        .then(res => {
+          return res.text();
+        })
+        .then(data => {
+          console.log("data: " + JSON.stringify(data));
+        })
+        .catch(error => {
+          console.error(error);
+          return error;
         });
     },
     airOffers: (
@@ -425,29 +442,50 @@ const resolvers = {
         body: JSON.stringify(airOfferInput)
       })
         .then(res => res.json())
-        .then(data => {
-          /* var flights = [];
-          if (data.dictionaries)
-            Object.values(data.dictionaries.flight).forEach(value => {
-              flights.push(value);
+        .then(res => {
+          if (res.dictionaries) {
+            const myFlights = [];
+            Object.entries(res.dictionaries.flight).forEach(([key, value]) => {
+              myFlights.push(value);
             });
-*/
+            if (myFlights.length > 1) {
+              var firstBoundArrival = new Date(myFlights[0].arrival.dateTime);
+              var secondBoundDeparture = new Date(
+                myFlights[1].departure.dateTime
+              );
+              var timeDiff = Math.abs(
+                secondBoundDeparture.getTime() - firstBoundArrival.getTime()
+              );
+              var numberOfNights = Math.ceil(timeDiff / (1000 * 3600 * 24));
 
-          /*
-          var myExt = [];
-          myExt[0] = {
-            extensionType: "TextExtension",
-            name: "Flight data",
-            content: JSON.stringify(flights)
-          };
-          //addExtensions(_, { cartId, myExt });
-          fetch(baseUrl + `/shopping/carts/${cartId}/extensions`, {
-            method: "POST",
-            headers,
-            body: JSON.stringify(myExt)
-          });
-          */
-          return data;
+              var targetLocation = myFlights[0].arrival.locationCode;
+
+              console.log(
+                targetLocation +
+                  ": targetLocation " +
+                  numberOfNights +
+                  " nights"
+              );
+              /* 
+              var myExt = [];
+              myExt[0] = {
+                extensionType: "TextExtension",
+                name: "Flight data",
+                content: JSON.stringify({
+                  targetLocation: targetLocation,
+                  numberOfNights: numberOfNights
+                })
+              };
+              //addExtensions(_, { cartId, myExt });
+              fetch(baseUrl + `/shopping/carts/${cartId}/extensions`, {
+                method: "POST",
+                headers,
+                body: JSON.stringify(myExt)
+              });
+              */
+            }
+          }
+          return res;
         })
         .then(data => data && data.data)
         .catch(error => {
@@ -535,7 +573,6 @@ const buildSignature = function(apiKey, secret) {
   var d = new Date();
   var n = d.getTime();
   var datetime = Math.floor(n / 1000);
-
   return sha256(apiKey + secret + datetime);
 };
 
