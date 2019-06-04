@@ -1,0 +1,173 @@
+# Write your query or mutation here
+
+mutation CreateCart {
+  createCart {
+    id
+  }
+}
+
+query getHotels {
+  getHotels {
+    hotels {
+      hotels {
+        code
+        name
+      }
+    }
+  }
+}
+
+query RetrieveFullCart ($cartId: String) {
+  cart(id: $cartId) {
+    data {
+      id
+      travelers {
+        names {
+          firstName
+          lastName
+        }
+      }
+      contacts {
+        contactType
+        ... on Email {
+          address
+        }
+        ... on Phone {
+          deviceType
+          countryPhoneExtension
+          number
+        }
+      }
+      frequentFlyerCards {
+        companyCode
+        cardNumber
+              travelerId
+      }
+      airOffers {
+        id
+        offerItems {
+          air {
+            bounds {
+              originLocationCode
+              destinationLocationCode
+            }
+          }
+        }
+      }
+      accommodations {
+        code
+      }
+    }
+    dictionaries {
+      flight {
+        aircraftCode
+      }
+      location {
+        code
+      }
+    }
+  }
+}
+
+query GetAirOffers ($originLocationCode: String, $destinationLocationCode: String, $departureDateTime: String, $returnDateTime: String, $commercialFareFamily: String, $travelerTypes: String) {
+  airOffers(originLocationCode: $originLocationCode, destinationLocationCode: $destinationLocationCode, departureDateTime: $departureDateTime, returnDateTime: $returnDateTime, commercialFareFamily: $commercialFareFamily, travelerTypes: $travelerTypes) {
+    airOffers {
+    	  id
+    }
+  }
+}
+
+mutation AddAirOffer ($cartId: String, $airOfferInput: AirOfferInput) {
+  addAirOffer(cartId: $cartId, airOfferInput: $airOfferInput) {
+    id
+  }
+}
+
+
+mutation AddTravelers ($cartId: String, $travelers: [TravelerInput]) {
+  addTravelers(cartId: $cartId, travelers: $travelers) {
+    id
+    passengerTypeCode
+    dateOfBirth
+    names {
+      firstName
+      lastName
+      title
+      nameType
+    }
+  }
+}
+
+
+mutation AddContacts($cartId: String, $contacts: ContactInput) {
+  addContacts(cartId: $cartId, contacts: $contacts) {
+    id
+    contactType
+    category
+    travelerIds
+    travelerTIds
+    addresseeName
+    ... on Email {
+      address
+    }
+    ... on Phone {
+      deviceType
+      countryPhoneExtension
+      number
+    }
+  }
+}
+
+mutation AddFFCards($cartId: String, $frequentFlyerCards: [FrequentFlyerCardInput]) {
+  addFrequentFlyers(cartId: $cartId, frequentFlyerCards: $frequentFlyerCards) {
+    companyCode
+    cardNumber
+    id
+    tid
+    tierLevel
+    priorityCode
+    travelerId
+    travelerTId
+  }
+}
+
+mutation AddAll($cartId: String, $travelers: [TravelerInput], $contacts: ContactInput, $frequentFlyerCards: [FrequentFlyerCardInput]) {
+  addTravelers(cartId: $cartId, travelers: $travelers) {
+    id
+    passengerTypeCode
+    dateOfBirth
+    names {
+      firstName
+      lastName
+      title
+      nameType
+      isDisplayed
+    }
+  }
+  addContacts(cartId: $cartId, contacts: $contacts) {
+    id
+    contactType
+    category
+    travelerIds
+    travelerTIds
+    addresseeName
+    ... on Email {
+      address
+    }
+    ... on Phone {
+      deviceType
+      countryPhoneExtension
+      number
+    }
+  }
+  addFrequentFlyers(cartId: $cartId, frequentFlyerCards: $frequentFlyerCards) {
+    companyCode
+    cardNumber
+    id
+    tid
+    tierLevel
+    priorityCode
+    travelerId
+    travelerTId
+  }
+}

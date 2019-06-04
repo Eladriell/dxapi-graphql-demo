@@ -1,0 +1,64 @@
+
+{
+  "cartId": "002OK8C3KT55M208",
+  "originLocationCode": "LON",
+  "destinationLocationCode": "HEL",
+  "returnDateTime": "2019-11-10",
+  "departureDateTime": "2019-10-08",
+  "commercialFareFamily": "-ALL-",
+  "travelerTypes": "2ADT",
+  "airOfferInput": {
+    "airOfferId": "SULG-10671364910403896778-1"
+  },
+  "travelers": [
+    {
+      "tid": "1",
+      "passengerTypeCode": "ADT",
+      "names": [
+        {
+          "firstName": "JeanMichel",
+          "lastName": "Api",
+          "title": "Mr"
+        }
+      ]
+    },
+    {
+      "passengerTypeCode": "ADT",
+      "names": [
+        {
+          "firstName": "Junior",
+          "lastName": "Api",
+          "title": "Jr"
+        }
+      ]
+    }
+  ],
+  "contacts": {
+    "emails":[
+      {
+        "address": "jean@michel.fr",
+        "purpose": "standard",
+        "contactType":"Email",
+        "category": "personal"
+        }
+    ],
+    "phones": [
+      {
+        "purpose": "standard",
+        "contactType":"Phone",
+        "category": "personal",
+        "deviceType": "mobile",
+        "number": "600000000",
+        "countryPhoneExtension": "+33"
+      }
+    ]
+  },
+  "frequentFlyerCards": [
+    {
+      "companyCode": "6X",
+      "cardNumber": "0123456789",
+      "tierLevel": "obsidian",
+      "travelerTId": "1"
+    }
+  ]
+}
