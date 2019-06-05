@@ -1,6 +1,6 @@
 const { ApolloServer, gql } = require("apollo-server");
 const fetch = require("node-fetch");
-const SHA256 = require("crypto-js/sha256");
+const cripto = require("crypto-js");
 
 // Construct a schema, using GraphQL schema language
 const typeDefs = gql`
@@ -15,6 +15,11 @@ const typeDefs = gql`
       travelerTypes: String
     ): AirOfferList
     getHotels: HotelReply
+    weatherForecast(
+      location: String
+      beginDate: String
+      endDate: String
+    ): WeatherReply
   }
 
   type Mutation {
@@ -99,6 +104,46 @@ const typeDefs = gql`
   }
   type HotelReply {
     hotels: HotelData
+  }
+
+  type WeatherReply {
+    data: WeatherData
+  }
+
+  type WeatherData {
+    request: [WeatherRequest]
+    weather: [Weather]
+  }
+
+  type Weather {
+    date: String
+    maxtempC: String
+    maxtempF: String
+    mintempC: String
+    mintempF: String
+    hourly: [HourlyWeather]
+  }
+
+  type HourlyWeather {
+    time: String
+    tempC: String
+    tempF: String
+    visibility: String
+    weatherIconUrl: [WeatherIconUrl]
+    weatherDesc: [WeatherDesc]
+  }
+
+  type WeatherIconUrl {
+    value: String
+  }
+
+  type WeatherDesc {
+    value: String
+  }
+
+  type WeatherRequest {
+    type: String
+    query: String
   }
 
   type Cart {
@@ -355,10 +400,19 @@ const resolvers = {
       return fetch(baseUrl + `/shopping/carts/${id}`, { headers })
         .then(res => res.json())
         .then(res => {
-          //determine duration + location for hotel search
-
+          if (res.dictionaries && res.dictionaries.flight) {
+            orchestrate3PCalls(res.dictionaries.flight);
+          }
           return res;
+        })
+        .then(data => data && data.data)
+        .catch(error => {
+          console.error(error);
+          return error;
         });
+    },
+    weatherForecast: (_, { location, beginDate, endDate }) => {
+      return whatsTheWeather(`${location}`, `${beginDate}`, `${endDate}`);
     },
     getHotels: () => {
       const apiKeyApiTude = "ex2hcrqn8f3c3uwrevcpncs8";
@@ -369,9 +423,13 @@ const resolvers = {
         "Api-key": apiKeyApiTude,
         "X-Signature": signature,
         Accept: "application/json",
-        "Accept-Encoding": "Gzip",
-        "Content-Type": "application/json"
+        "Accept-Encoding": "gzip",
+        "Content-Type": "application/json",
+        "User-Agent": "PostmanRuntime/7.13.0",
+        Connection: "keep-alive",
+        "cache-control": "no-cache"
       };
+
       const hotelSearch = {
         stay: {
           checkIn: "2019-06-15",
@@ -392,30 +450,45 @@ const resolvers = {
         }
       };
       var apiTudeUrl =
-        "https://4798193b-60a5-4ca7-b064-7625627f013e.mock.pstmn.io";
-      //    "https://api.test.hotelbeds.com";
-      return fetch(apiTudeUrl + "/hotel-api/1.0/hotels", {
-        method: "POST",
-        headersApiTude,
-        body: JSON.stringify(hotelSearch)
-      })
-        .then(res => res.json())
+        //  "https://46ae3f94-eacd-4b68-a8e3-78201f5163f1.mock.pstmn.io";
+        "https://api.test.hotelbeds.com";
+
+      console.log(JSON.stringify(headersApiTude));
+      return (
+        /*
+        fetch(apiTudeUrl + "/hotel-api/1.0/hotels", {
+          method: "POST",
+          headersApiTude,
+          body: JSON.stringify(hotelSearch)
+        })
+        */
+
+        fetch(
+          apiTudeUrl +
+            "/hotel-content-api/1.0/hotels/78677/details?language=ENG&useSecondaryLanguage=False",
+          {
+            method: "GET",
+            headersApiTude
+          }
+        )
+          /* .then(res => res.json())
         .then(res => {
           console.log(res);
 
           return res;
         });
-      /*
-        .then(checkStatus)
-        .then(res => {
-          return res.json();
-        })
-        .then(data => data && data.hotels)
-        .catch(error => {
-          console.error(error);
-          return error;
-        });
         */
+
+          .then(checkStatus)
+          .then(res => {
+            return res.json();
+          })
+          .then(data => data && data.hotels)
+          .catch(error => {
+            console.error(error);
+            return error;
+          })
+      );
     },
     airOffers: (
       _,
@@ -455,66 +528,7 @@ const resolvers = {
         .then(res => res.json())
         .then(res => {
           if (res.dictionaries) {
-            const myFlights = [];
-            Object.entries(res.dictionaries.flight).forEach(([key, value]) => {
-              myFlights.push(value);
-            });
-            if (myFlights.length > 1) {
-              var firstBoundArrival = new Date(myFlights[0].arrival.dateTime);
-              var secondBoundDeparture = new Date(
-                myFlights[1].departure.dateTime
-              );
-              var timeDiff = Math.abs(
-                secondBoundDeparture.getTime() - firstBoundArrival.getTime()
-              );
-              var numberOfNights = Math.ceil(timeDiff / (1000 * 3600 * 24));
-
-              var targetLocation = {
-                iataCode: myFlights[0].arrival.locationCode
-              };
-
-              fetch(
-                `http://nano.aviasales.ru/places_en?term=` +
-                  targetLocation.iataCode,
-                { headers }
-              )
-                .then(locationRes => locationRes.json())
-                .then(data => {
-                  targetLocation.latitude = data[0].coordinates[0];
-                  targetLocation.longitude = data[0].coordinates[1];
-
-                  console.log(
-                    JSON.stringify(myFlights) +
-                      ": flights -" +
-                      JSON.stringify(targetLocation) +
-                      "targetLocation" +
-                      numberOfNights +
-                      " nights"
-                  );
-                })
-                .catch(error => {
-                  console.error(error);
-                  return error;
-                });
-
-              /* 
-              var myExt = [];
-              myExt[0] = {
-                extensionType: "TextExtension",
-                name: "Flight data",
-                content: JSON.stringify({
-                  targetLocation: targetLocation,
-                  numberOfNights: numberOfNights
-                })
-              };
-              //addExtensions(_, { cartId, myExt });
-              fetch(baseUrl + `/shopping/carts/${cartId}/extensions`, {
-                method: "POST",
-                headers,
-                body: JSON.stringify(myExt)
-              });
-              */
-            }
+            orchestrate3PCalls(res.dictionaries.flight);
           }
           return res;
         })
@@ -627,5 +641,170 @@ const buildSignature = function(apiKey, secret) {
   var d = new Date();
   var n = d.getTime();
   var datetime = Math.floor(n / 1000);
-  return SHA256(apiKey + secret + datetime);
+  var signature = cripto.SHA256(apiKey + secret + datetime);
+  // var byteArray = wordToByteArray(signature.words);
+  var mySign = signature.toString(cripto.enc.Hex);
+  console.log(mySign);
+  return mySign;
+};
+
+const orchestrate3PCalls = function(flightDic) {
+  if (flightDic) {
+    const myFlights = [];
+    Object.entries(flightDic).forEach(([key, value]) => {
+      myFlights.push(value);
+    });
+    if (
+      myFlights.length > 1 &&
+      (myFlights[0].arrival && myFlights[1].departure)
+    ) {
+      var firstBoundArrivalDate = new Date(myFlights[0].arrival.dateTime);
+      var secondBoundDepartureDate = new Date(myFlights[1].departure.dateTime);
+      var beginDate = firstBoundArrivalDate.toISOString().slice(0, 10);
+      var endDate = secondBoundDepartureDate.toISOString().slice(0, 10);
+      var timeDiff = Math.abs(
+        secondBoundDepartureDate.getTime() - firstBoundArrivalDate.getTime()
+      );
+      var numberOfNights = Math.ceil(timeDiff / (1000 * 3600 * 24));
+
+      var targetLocation = {
+        iataCode: myFlights[0].arrival.locationCode
+      };
+
+      //retrieve geo coordinated of target location
+      fetch(
+        `http://nano.aviasales.ru/places_en?term=` + targetLocation.iataCode,
+        { headers }
+      )
+        .then(locationRes => locationRes.json())
+        .then(data => {
+          targetLocation.latitude = data[0].coordinates[0];
+          targetLocation.longitude = data[0].coordinates[1];
+
+          console.log();
+        })
+        .catch(error => {
+          console.error(error);
+          return error;
+        });
+
+      //Hotel API call
+      console.log(
+        "Calling hotel search API on " +
+          JSON.stringify(targetLocation) +
+          " for " +
+          numberOfNights +
+          " nights"
+      );
+
+      //Weather API call
+      console.log(
+        "Calling Weather Forecast API on " +
+          targetLocation.iataCode +
+          " for the period " +
+          beginDate +
+          " to " +
+          endDate
+      );
+      /* var forecast = whatsTheWeather(
+        targetLocation.iataCode,
+        beginDate,
+        endDate
+      );
+      */
+      /* 
+              var myExt = [];
+              myExt[0] = {
+                extensionType: "TextExtension",
+                name: "Flight data",
+                content: JSON.stringify({
+                  targetLocation: targetLocation,
+                  numberOfNights: numberOfNights
+                })
+              };
+              //addExtensions(_, { cartId, myExt });
+              fetch(baseUrl + `/shopping/carts/${cartId}/extensions`, {
+                method: "POST",
+                headers,
+                body: JSON.stringify(myExt)
+              });
+              */
+    }
+  }
+  return;
+};
+
+const addDays = function(date, days) {
+  var result = new Date(date);
+  result.setDate(result.getDate() + days);
+  return result
+    .toISOString()
+    .replace(/T.*/, "")
+    .split("/")
+    .reverse()
+    .join("-");
+};
+
+const whatsTheWeather = function(location, beginDate, endDate) {
+  var appKey = "f5aa1ec3682b494abb755813193005";
+  var cityNameOrLatLon = location;
+  var today = new Date();
+  var bufferForLocalAPI = addDays(today, 14);
+
+  var flagForHistoricalAPI = false;
+  var urlToCall = ""; /* var secondUrlToCall = ''; */
+  // For this POC, if the entire journey falls under the Local API scope (i.e., till 15 days from now),
+  // then then we call the Local API, else (in the case when even a single day of journey is out of Local API scope),
+  // we call the Historical API.
+  if (new Date(bufferForLocalAPI) >= new Date(endDate)) {
+    //USING LOCAL WEATHER API
+    var urlForLocalWeatherAPI =
+      "https://api.worldweatheronline.com/premium/v1/weather.ashx?key=" +
+      appKey +
+      "&format=json&q=" +
+      cityNameOrLatLon;
+    urlToCall = urlForLocalWeatherAPI;
+  } else {
+    //USING HISTORICAL WEATHER API
+    flagForHistoricalAPI = true;
+    var beginDateArr = beginDate.split("-");
+    beginDateArr[0] = today.getFullYear() - 1;
+    beginDate = beginDateArr.join("-");
+
+    var endDateArr = endDate.split("-");
+    endDateArr[0] = today.getFullYear() - 1;
+    endDate = endDateArr.join("-");
+
+    var urlForHistoricalWeatherAPI =
+      "https://api.worldweatheronline.com/premium/v1/past-weather.ashx?key=" +
+      appKey +
+      "&format=json&q=" +
+      cityNameOrLatLon +
+      "&date=" +
+      beginDate +
+      "&enddate=" +
+      endDate;
+    urlToCall = urlForHistoricalWeatherAPI;
+  }
+  return fetch(urlToCall)
+    .then(function(res) {
+      return res.json();
+    })
+    .then(function(json) {
+      if (flagForHistoricalAPI) {
+        for (w in json.data.weather) {
+          var dateArr1 = json.data.weather[w].date.split("-");
+          dateArr1[0] = parseInt(dateArr1[0]) + 1;
+          json.data.weather[w].date = dateArr1.join("-");
+        }
+      } else {
+        var diffTimeStart = Math.abs(new Date(beginDate) - today);
+        var startIndex = Math.ceil(diffTimeStart / (1000 * 60 * 60 * 24));
+        var diffTimeEnd = Math.abs(new Date(endDate) - today);
+        var endIndex = Math.ceil(diffTimeEnd / (1000 * 60 * 60 * 24));
+        var weathers = json.data.weather.slice(startIndex, endIndex + 1);
+        json.data.weather = weathers;
+      }
+      return json;
+    });
 };

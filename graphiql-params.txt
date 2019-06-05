@@ -1,15 +1,18 @@
 
 {
-  "cartId": "002OK8C3KT55M208",
+  "cartId": "002OL0LMB5ARO208",
   "originLocationCode": "LON",
   "destinationLocationCode": "HEL",
-  "returnDateTime": "2019-11-10",
+  "returnDateTime": "2019-10-11",
   "departureDateTime": "2019-10-08",
   "commercialFareFamily": "-ALL-",
   "travelerTypes": "2ADT",
   "airOfferInput": {
-    "airOfferId": "SULG-10671364910403896778-1"
+    "airOfferId": "SULG-17226562644081265614-1"
   },
+  "location": "London",
+  "beginDate": "2019/06/19",
+  "endDate": "2019/06/21",
   "travelers": [
     {
       "tid": "1",
@@ -53,6 +56,13 @@
       }
     ]
   },
+  "extensions":[
+    {
+		"extensionType": "TextExtension",
+		"name": "my first extension",
+		"content": "Let me store here the hotel booking I did on my own"
+    }
+  ],
   "frequentFlyerCards": [
     {
       "companyCode": "6X",
