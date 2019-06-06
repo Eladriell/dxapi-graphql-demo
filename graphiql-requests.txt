@@ -37,7 +37,7 @@ query RetrieveFullCart ($cartId: String) {
         date
         mintempC
         maxtempC
-        hourly(time: ["1200"]) {
+        hourly(time: ["1200", "1500"]) {
           time
           tempC
           visibility
@@ -91,6 +91,7 @@ query RetrieveFullCart ($cartId: String) {
       }
       location {
         code
+        cityName
       }
     }
     }
@@ -207,3 +208,4 @@ mutation AddAll($cartId: String, $travelers: [TravelerInput], $contacts: Contact
     travelerTId
   }
 }
+

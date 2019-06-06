@@ -159,12 +159,12 @@ const typeDefs = gql`
   }
 
   type CartDictionaries {
-    location: LocationDic
-    flight: FlightDic
+    location: [LocationDic]
+    flight: [FlightDic]
   }
 
   type FlightDic {
-    id: String
+    code: String
     marketingAirlineCode: String
     operatingAirlineCode: String
     operatingAirlineName: String
@@ -394,6 +394,13 @@ const headers = {
 };
 
 const baseUrl = "https://proxy.digitalforairlines.com/v2";
+
+function dictionariesToList(dictionaries) {
+  return Object.keys(dictionaries).reduce((dico, dicoName) => {
+    dico[dicoName] = Object.entries(dictionaries[dicoName]).map(([key, val]) => ({...val, code: key}));
+    return dico;
+  }, {});
+}
 
 // Provide resolver functions for your schema fields
 const resolvers = {
@@ -629,6 +636,9 @@ const resolvers = {
       //console.log('End date: ', stayEnd);
       //console.log(weather);
       return weather;
+    },
+    dictionaries: (cart) => {
+      return dictionariesToList(cart.dictionaries);
     }
   },
   Weather: {
