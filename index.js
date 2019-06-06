@@ -5,7 +5,7 @@ const cripto = require("crypto-js");
 // Construct a schema, using GraphQL schema language
 const typeDefs = gql`
   type Query {
-    cart(id: String): CartReply
+    cart(id: String): Cart
     airOffers(
       originLocationCode: String
       destinationLocationCode: String
@@ -19,7 +19,7 @@ const typeDefs = gql`
       location: String
       beginDate: String
       endDate: String
-    ): WeatherReply
+    ): [Weather]
   }
 
   type Mutation {
@@ -121,7 +121,7 @@ const typeDefs = gql`
     maxtempF: String
     mintempC: String
     mintempF: String
-    hourly: [HourlyWeather]
+    hourly(time: [String]): [HourlyWeather]
   }
 
   type HourlyWeather {
@@ -129,8 +129,8 @@ const typeDefs = gql`
     tempC: String
     tempF: String
     visibility: String
-    weatherIconUrl: [WeatherIconUrl]
-    weatherDesc: [WeatherDesc]
+    weatherIconUrl: String
+    weatherDesc: String
   }
 
   type WeatherIconUrl {
@@ -148,11 +148,13 @@ const typeDefs = gql`
 
   type Cart {
     id: String
+    dictionaries: CartDictionaries
     travelers: [Traveler]
     contacts: [IContact]
     frequentFlyerCards: [FrequentFlyerCard]
     airOffers: [AirOffer]
     accommodations: [Accommodation]
+    weather: [Weather]
     extensions: [Extension]
   }
 
@@ -400,12 +402,11 @@ const resolvers = {
       return fetch(baseUrl + `/shopping/carts/${id}`, { headers })
         .then(res => res.json())
         .then(res => {
-          if (res.dictionaries && res.dictionaries.flight) {
+          /*if (res.dictionaries && res.dictionaries.flight) {
             orchestrate3PCalls(res.dictionaries.flight);
-          }
-          return res;
+          }*/
+          return {...res.data, dictionaries: res.dictionaries};
         })
-        .then(data => data && data.data)
         .catch(error => {
           console.error(error);
           return error;
@@ -601,6 +602,41 @@ const resolvers = {
   IContact: {
     __resolveType: obj => {
       return obj.contactType;
+    }
+  },
+  Cart: {
+    weather: async (cart) => {
+      if (!cart || !cart.airOffers || !cart.airOffers[0] || !cart.airOffers[0].offerItems || !cart.airOffers[0].offerItems[0]
+        || !cart.airOffers[0].offerItems[0].air || !cart.airOffers[0].offerItems[0].air || !cart.airOffers[0].offerItems[0].air.bounds
+        || cart.airOffers[0].offerItems[0].air.bounds.length !== 2) {
+        return [];
+      }
+      const bounds = cart.airOffers[0].offerItems[0].air.bounds;
+      const destinationCode = bounds[0].destinationLocationCode;
+      const destinationCityName = cart.dictionaries.location[destinationCode].cityName;
+      const lastDepartureFlight = cart.dictionaries.flight[bounds[0].flights[bounds[0].flights.length - 1].id];
+      const firstReturnFlight = cart.dictionaries.flight[bounds[1].flights[0].id];
+
+      const stayBeginDate = new Date(lastDepartureFlight.arrival.dateTime);
+      const stayEndDate = new Date(firstReturnFlight.departure.dateTime);
+
+      const stayBegin = `${stayBeginDate.getFullYear()}-${stayBeginDate.getMonth()+1}-${stayBeginDate.getDate()}`;
+      const stayEnd = `${stayEndDate.getFullYear()}-${stayEndDate.getMonth()+1}-${stayEndDate.getDate()}`
+
+      const weather = await whatsTheWeather(destinationCityName, stayBegin, stayEnd);
+      //console.log('Destination: ', destinationCityName);
+      //console.log('Begin date: ', stayBegin);
+      //console.log('End date: ', stayEnd);
+      //console.log(weather);
+      return weather;
+    }
+  },
+  Weather: {
+    hourly: (weather, args) => {
+      if (args.time) {
+        return weather.hourly.filter((hourly) => args.time.indexOf(hourly.time) >= 0);
+      }
+      return weather.hourly;
     }
   }
 };
@@ -805,6 +841,12 @@ const whatsTheWeather = function(location, beginDate, endDate) {
         var weathers = json.data.weather.slice(startIndex, endIndex + 1);
         json.data.weather = weathers;
       }
-      return json;
+      return (json.data.weather || []).map((weather) => ({
+        ...weather,
+        hourly: weather.hourly.map((hourly) => 
+          ({...hourly, weatherIconUrl: hourly.weatherIconUrl[0].value, weatherDesc: hourly.weatherDesc[0].value})
+        )
+      })
+      );
     });
 };
