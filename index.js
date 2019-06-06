@@ -14,7 +14,7 @@ const typeDefs = gql`
       commercialFareFamily: String
       travelerTypes: String
     ): AirOfferList
-    getHotels: HotelReply
+    getHotels: HotelReply  
     weatherForecast(
       location: String
       beginDate: String
@@ -207,7 +207,7 @@ const typeDefs = gql`
     rooms: [Room]
     minRate: String
     maxRate: String
-    currencyCode: String
+    currency: String
   }
 
   type Extension {
@@ -422,81 +422,8 @@ const resolvers = {
     weatherForecast: (_, { location, beginDate, endDate }) => {
       return whatsTheWeather(`${location}`, `${beginDate}`, `${endDate}`);
     },
-    getHotels: () => {
-      const apiKeyApiTude = "ex2hcrqn8f3c3uwrevcpncs8";
-      const secretApiTude = "AJfrPvArP5";
-      var signature = buildSignature(apiKeyApiTude, secretApiTude);
-
-      const headersApiTude = {
-        "Api-key": apiKeyApiTude,
-        "X-Signature": signature,
-        Accept: "application/json",
-        "Accept-Encoding": "gzip",
-        "Content-Type": "application/json",
-        "User-Agent": "PostmanRuntime/7.13.0",
-        Connection: "keep-alive",
-        "cache-control": "no-cache"
-      };
-
-      const hotelSearch = {
-        stay: {
-          checkIn: "2019-06-15",
-          checkOut: "2019-06-16"
-        },
-        occupancies: [
-          {
-            rooms: 1,
-            adults: 1,
-            children: 0
-          }
-        ],
-        geolocation: {
-          latitude: 51.4703,
-          longitude: -0.45342,
-          radius: 20,
-          unit: "km"
-        }
-      };
-      var apiTudeUrl =
-        //  "https://46ae3f94-eacd-4b68-a8e3-78201f5163f1.mock.pstmn.io";
-        "https://api.test.hotelbeds.com";
-
-      console.log(JSON.stringify(headersApiTude));
-      return (
-        /*
-        fetch(apiTudeUrl + "/hotel-api/1.0/hotels", {
-          method: "POST",
-          headersApiTude,
-          body: JSON.stringify(hotelSearch)
-        })
-        */
-
-        fetch(
-          apiTudeUrl +
-            "/hotel-content-api/1.0/hotels/78677/details?language=ENG&useSecondaryLanguage=False",
-          {
-            method: "GET",
-            headersApiTude
-          }
-        )
-          /* .then(res => res.json())
-        .then(res => {
-          console.log(res);
-
-          return res;
-        });
-        */
-
-          .then(checkStatus)
-          .then(res => {
-            return res.json();
-          })
-          .then(data => data && data.hotels)
-          .catch(error => {
-            console.error(error);
-            return error;
-          })
-      );
+    getHotels: (_, { checkIn, checkOut, location, adults, children }) => {
+      return searchForHotels(`${checkIn}`, `${checkOut}`, `${location}`, `${adults}`, `${children}`);
     },
     airOffers: (
       _,
@@ -515,7 +442,13 @@ const resolvers = {
         { headers }
       )
         .then(res => res.json())
-        .then(data => data && data.data);
+        .then(data => {console.log(JSON.stringify(data)); return data;})
+        .then(data => data && data.data)
+        
+        .catch(error => {
+          console.error(error);
+          return error;
+        });
     }
   },
   Mutation: {
@@ -637,6 +570,33 @@ const resolvers = {
       //console.log(weather);
       return weather;
     },
+    accommodations: async (cart) => {
+      if (!cart || !cart.airOffers || !cart.airOffers[0] || !cart.airOffers[0].offerItems || !cart.airOffers[0].offerItems[0]
+        || !cart.airOffers[0].offerItems[0].air || !cart.airOffers[0].offerItems[0].air || !cart.airOffers[0].offerItems[0].air.bounds
+        || cart.airOffers[0].offerItems[0].air.bounds.length !== 2) {
+        return [];
+      }
+      const bounds = cart.airOffers[0].offerItems[0].air.bounds;
+      const destinationCode = bounds[0].destinationLocationCode;
+      const destinationCityName = cart.dictionaries.location[destinationCode].cityName;
+      const lastDepartureFlight = cart.dictionaries.flight[bounds[0].flights[bounds[0].flights.length - 1].id];
+      const firstReturnFlight = cart.dictionaries.flight[bounds[1].flights[0].id];
+
+      const stayBeginDate = new Date(lastDepartureFlight.arrival.dateTime);
+      const stayEndDate = new Date(firstReturnFlight.departure.dateTime);
+
+      const stayBegin = `${stayBeginDate.getFullYear()}-${stayBeginDate.getMonth()+1}-${stayBeginDate.getDate()}`;
+      const stayEnd = `${stayEndDate.getFullYear()}-${stayEndDate.getMonth()+1}-${stayEndDate.getDate()}`
+      
+      
+      const hotelSearch = await searchForHotels(stayBegin, stayEnd, destinationCityName, 2, 0);
+        //  console.log('Destination: ', destinationCityName);
+        //console.log('Begin date: ', stayBegin);
+        //console.log('End date: ', stayEnd);
+       // console.log("**********"+hotelSearch);
+        
+      return hotelSearch.hotels.hotels;
+    },
     dictionaries: (cart) => {
       return dictionariesToList(cart.dictionaries);
     }
@@ -752,29 +712,6 @@ const orchestrate3PCalls = function(flightDic) {
           " to " +
           endDate
       );
-      /* var forecast = whatsTheWeather(
-        targetLocation.iataCode,
-        beginDate,
-        endDate
-      );
-      */
-      /* 
-              var myExt = [];
-              myExt[0] = {
-                extensionType: "TextExtension",
-                name: "Flight data",
-                content: JSON.stringify({
-                  targetLocation: targetLocation,
-                  numberOfNights: numberOfNights
-                })
-              };
-              //addExtensions(_, { cartId, myExt });
-              fetch(baseUrl + `/shopping/carts/${cartId}/extensions`, {
-                method: "POST",
-                headers,
-                body: JSON.stringify(myExt)
-              });
-              */
     }
   }
   return;
@@ -789,6 +726,61 @@ const addDays = function(date, days) {
     .split("/")
     .reverse()
     .join("-");
+};
+
+const searchForHotels = function(checkIn, checkOut, location, adults, children) {
+      const apiKeyApiTude = "ex2hcrqn8f3c3uwrevcpncs8";
+      const secretApiTude = "AJfrPvArP5";
+      var signature = buildSignature(apiKeyApiTude, secretApiTude);
+
+      const headersApiTude = {
+        "Api-key": apiKeyApiTude,
+        "X-Signature": signature,
+        Accept: "application/json",
+        "Accept-Encoding": "gzip",
+        "Content-Type": "application/json",
+        "User-Agent": "PostmanRuntime/7.13.0",
+        Connection: "keep-alive",
+        "cache-control": "no-cache"
+      };
+
+      const hotelSearch = {
+        stay: {
+          checkIn: checkIn,
+          checkOut: checkOut
+        },
+        occupancies: [
+          {
+            rooms: 1,
+            adults: adults,
+            children: children
+          }
+        ],
+        geolocation: {
+          latitude: 51.4703,
+          longitude: -0.45342,
+          radius: 20,
+          unit: "km"
+        }
+      };
+     
+      var apiTudeUrl =
+        //"https://api.test.hotelbeds.com/hotel-api/1.0";
+        "http://localhost:9001"
+      return fetch(apiTudeUrl + "/hotels", {
+          method: "POST",
+          headersApiTude,
+          body: JSON.stringify(hotelSearch)
+        })        
+        .then(res => res.json())
+        .then(data => {
+          return data;
+        })
+        .catch(error => {
+          console.error(error);
+          return error;
+        })
+      ;
 };
 
 const whatsTheWeather = function(location, beginDate, endDate) {

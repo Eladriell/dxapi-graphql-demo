@@ -11,6 +11,9 @@ query getHotels {
       hotels {
         code
         name
+        destinationName
+        minRate
+        currency
       }
     }
   }
@@ -19,15 +22,6 @@ query getHotels {
 query weatherForecast($location: String, $beginDate: String, $endDate: String) {
   weatherForecast (location: $location, beginDate: $beginDate, endDate: $endDate)  {
     date
-      mintempC
-      maxtempC
-      hourly {
-        time
-        tempC
-        visibility
-        weatherIconUrl
-        weatherDesc
-      }
   }
 }
 query RetrieveFullCart ($cartId: String) {
@@ -37,18 +31,12 @@ query RetrieveFullCart ($cartId: String) {
         date
         mintempC
         maxtempC
-        hourly(time: ["1200", "1500"]) {
+        hourly(time: ["1200"]) {
           time
           tempC
           visibility
           weatherIconUrl
           weatherDesc
-        }
-      }
-      travelers {
-        names {
-          firstName
-          lastName
         }
       }
       contacts {
@@ -80,6 +68,10 @@ query RetrieveFullCart ($cartId: String) {
       }
       accommodations {
         code
+        name
+        destinationName
+        minRate
+        currency
       }
       extensions {
         id
@@ -87,11 +79,18 @@ query RetrieveFullCart ($cartId: String) {
       }
     dictionaries {
       flight {
-        aircraftCode
+        code
+        departure {
+          locationCode
+          dateTime
+        }
+        arrival {
+          locationCode
+          dateTime
+        }
       }
       location {
         code
-        cityName
       }
     }
     }
@@ -208,4 +207,3 @@ mutation AddAll($cartId: String, $travelers: [TravelerInput], $contacts: Contact
     travelerTId
   }
 }
-
