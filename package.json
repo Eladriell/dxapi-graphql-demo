@@ -7,7 +7,7 @@
     "crypto-js": "^3.1.9-1",
     "graphql": "14.0.2",
     "mockserver": "^3.0.0",
-    "node-fetch": "2.6.0"
+    "node-fetch": "2.6.1"
   },
   "license": "MIT",
   "main": "index.js",
